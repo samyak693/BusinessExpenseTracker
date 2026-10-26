@@ -1,0 +1,168 @@
+    
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Business Expense Tracker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+<div class="layout">
+    <aside class="sidebar">
+        <h2>FinTrack<span>.</span></h2>
+        <p class="side-label">WORKSPACE</p>
+        <a class="active" href="/">▦ Dashboard</a>
+        <a href="#transactions">↔ Transactions</a>
+        <a href="#budget">◎ Budget Planning</a>
+        <div class="sidebar-bottom">Business Finance<br><small>Expense Management</small></div>
+    </aside>
+
+    <main class="main">
+        <header>
+            <div>
+                <p class="muted">BUSINESS MANAGEMENT / OVERVIEW</p>
+                <h1>Expense Dashboard</h1>
+                <p class="muted">Monitor and manage your business spending.</p>
+            </div>
+            <button class="primary" id="openForm">+ Add Expense</button>
+        </header>
+
+        <section class="cards">
+            <article class="card">
+                <p>Total Expenses This Month</p>
+                <h2 id="total">₹0.00</h2>
+                <span>All recorded business expenses</span>
+            </article>
+            <article class="card">
+                <p>Monthly Budget</p>
+                <h2 id="budgetValue">₹1,00,000.00</h2>
+                <span>Current spending limit</span>
+            </article>
+            <article class="card">
+                <p>Budget Remaining</p>
+                <h2 id="remaining">₹1,00,000.00</h2>
+                <span id="budgetMessage">Available to spend</span>
+            </article>
+            <article class="card">
+                <p>Transactions</p>
+                <h2 id="count">0</h2>
+                <span>Recorded this month</span>
+            </article>
+        </section>
+
+        <section class="panel" id="budget">
+            <div class="section-heading">
+                <div>
+                    <h3>Monthly Budget</h3>
+                    <p class="muted">Track expenses against your spending limit.</p>
+                </div>
+                <button class="secondary" id="editBudget">Set Budget</button>
+            </div>
+            <div class="progress-track"><div id="progress"></div></div>
+            <div class="progress-labels">
+                <span id="spentLabel">₹0 spent</span>
+                <span id="percentLabel">0% used</span>
+            </div>
+        </section>
+
+        <section class="grid">
+            <div class="panel">
+                <h3>Spending by Category</h3>
+                <p class="muted">Expense distribution for the selected month.</p>
+                <div class="chart-container"><canvas id="categoryChart"></canvas></div>
+            </div>
+            <div class="panel">
+                <h3>Monthly Summary</h3>
+                <p class="muted">Choose a month to view its records.</p>
+                <label for="monthFilter">Reporting month</label>
+                <input type="month" id="monthFilter">
+                <div class="summary-box">
+                    <span>Selected month total</span>
+                    <h2 id="monthTotal">₹0.00</h2>
+                </div>
+            </div>
+        </section>
+
+        <section class="panel" id="transactions">
+            <div class="section-heading">
+                <div>
+                    <h3>Recent Transactions</h3>
+                    <p class="muted">Manage your business expenses.</p>
+                </div>
+                <input id="search" type="search" placeholder="Search expenses...">
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Expense</th>
+                            <th>Category</th>
+                            <th>Date</th>
+                            <th>Amount</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="expenseRows">
+                        <tr><td colspan="5">Loading expenses...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <footer>FinTrack Business Expense Tracker · College Project</footer>
+    </main>
+</div>
+
+<div class="modal hidden" id="expenseModal">
+    <form class="modal-box" id="expenseForm">
+        <div class="section-heading">
+            <h2 id="formTitle">Add Expense</h2>
+            <button type="button" class="close" id="closeForm">✕</button>
+        </div>
+
+        <label for="title">Expense title</label>
+        <input id="title" maxlength="100" required placeholder="e.g. Office supplies">
+
+        <label for="category">Category</label>
+        <select id="category" required>
+            {% for category in categories %}
+            <option value="{{ category }}">{{ category }}</option>
+            {% endfor %}
+        </select>
+
+        <label for="amount">Amount (INR ₹)</label>
+        <input id="amount" type="number" min="0.01" max="1000000000"
+               step="0.01" required placeholder="Enter amount">
+
+        <label for="expenseDate">Expense date</label>
+        <input id="expenseDate" type="date" required>
+
+        <label for="description">Description (optional)</label>
+        <textarea id="description" maxlength="500" placeholder="Additional details"></textarea>
+
+        <p id="formError" class="error"></p>
+        <button type="submit" class="primary full">Save Expense</button>
+    </form>
+</div>
+
+<div class="modal hidden" id="budgetModal">
+    <form class="modal-box" id="budgetForm">
+        <div class="section-heading">
+            <h2>Set Monthly Budget</h2>
+            <button type="button" class="close" id="closeBudget">✕</button>
+        </div>
+        <label for="budgetInput">Monthly budget (INR ₹)</label>
+        <input id="budgetInput" type="number" min="0" max="1000000000"
+               step="0.01" required>
+        <p id="budgetError" class="error"></p>
+        <button class="primary full" type="submit">Save Budget</button>
+    </form>
+</div>
+
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
+
