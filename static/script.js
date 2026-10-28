@@ -302,3 +302,73 @@ $("budgetForm").addEventListener("submit", async (event) => {
 
 loadExpenses();
 
+const chatForm = $("chatForm");
+const chatQuestion = $("chatQuestion");
+const chatMessages = $("chatMessages");
+
+function addChatMessage(sender, message) {
+    const p = document.createElement("p");
+    const strong = document.createElement("strong");
+
+    strong.textContent = sender + ": ";
+    p.append(strong, document.createTextNode(message));
+    chatMessages.appendChild(p);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+chatForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    const question = chatQuestion.value.trim();
+    if (!question) return;
+
+    addChatMessage("You", question);
+    chatQuestion.value = "";
+
+    const button = chatForm.querySelector("button");
+    button.disabled = true;
+    button.textContent = "Thinking...";
+
+    try {
+        const data = await api("/api/assistant", {
+            method: "POST",
+            body: JSON.stringify({ question })
+        });
+
+        addChatMessage("FinTrack AI", data.answer);
+    } catch (error) {
+        addChatMessage("FinTrack AI", "Sorry, I couldn't answer that. " + error.message);
+    } finally {
+        button.disabled = false;
+        button.textContent = "Ask";
+        chatQuestion.focus();
+    }
+});
+
+async function loadInsights() {
+    const container = $("insightList");
+    if (!container) return;
+
+    container.replaceChildren();
+
+    try {
+        const month = $("monthFilter").value || currentMonth;
+        const data = await api(
+            `/api/insights?month=${encodeURIComponent(month)}`
+        );
+
+        data.insights.forEach((message) => {
+            const item = document.createElement("p");
+            item.textContent = "💡 " + message;
+            container.appendChild(item);
+        });
+    } catch (error) {
+        const item = document.createElement("p");
+        item.textContent = "Unable to load insights. " + error.message;
+        container.appendChild(item);
+    }
+}
+
+$("monthFilter").addEventListener("change", loadInsights);
+loadInsights();
+

@@ -213,8 +213,154 @@ def health():
         conn.execute("SELECT 1").fetchone()
     return jsonify({"status": "healthy"})
 
+@app.get("/api/insights")
+def financial_insights():
+    month = request.args.get("month", date.today().strftime("%Y-%m"))
+
+    try:
+        parsed_month = date.fromisoformat(month + "-01")
+    except ValueError:
+        return jsonify({"error": "Month must use YYYY-MM format."}), 400
+
+    if parsed_month.strftime("%Y-%m") != month:
+        return jsonify({"error": "Month must use YYYY-MM format."}), 400
+
+    with get_db() as conn:
+        rows = conn.execute("""
+            SELECT category, amount
+            FROM expenses
+            WHERE substr(expense_date, 1, 7) = ?
+        """, (month,)).fetchall()
+
+        budget = conn.execute("""
+            SELECT monthly_budget FROM settings WHERE id = 1
+        """).fetchone()["monthly_budget"]
+
+    total = sum(row["amount"] for row in rows)
+    remaining = budget - total
+    categories = {}
+
+    for row in rows:
+        categories[row["category"]] = (
+            categories.get(row["category"], 0) + row["amount"]
+        )
+
+    highest = max(categories, key=categories.get) if categories else None
+    percent = total / budget * 100 if budget > 0 else 0
+
+    insights = []
+
+    if budget == 0:
+        insights.append("Your monthly budget is zero. Set a budget to track your limit.")
+    elif total > budget:
+        insights.append(f"Budget exceeded by ₹{total - budget:,.2f}. Review optional expenses.")
+    elif percent >= 80:
+        insights.append(f"You have used {percent:.1f}% of your monthly budget. Spend carefully.")
+    else:
+        insights.append(f"You have used {percent:.1f}% of your monthly budget.")
+
+    if highest:
+        insights.append(
+            f"{highest} is your highest-spending category at ₹{categories[highest]:,.2f}."
+        )
+    else:
+        insights.append("No expenses have been recorded for this month.")
+
+    return jsonify({
+        "month": month,
+        "total": round(total, 2),
+        "budget": budget,
+        "remaining": round(remaining, 2),
+        "budget_used_percent": round(percent, 1),
+        "highest_category": highest,
+        "insights": insights
+    })
+
 
 init_db()
+
+
+@app.post("/api/assistant")
+def financial_assistant():
+    data = request.get_json(silent=True) or {}
+    question = str(data.get("question", "")).strip().lower()
+
+    if not question:
+        return jsonify({"answer": "Please ask me a financial question."}), 400
+
+    month = date.today().strftime("%Y-%m")
+
+    with get_db() as conn:
+        expenses = conn.execute("""
+            SELECT title, category, amount, expense_date
+            FROM expenses
+            WHERE substr(expense_date, 1, 7) = ?
+        """, (month,)).fetchall()
+
+        budget = conn.execute("""
+            SELECT monthly_budget FROM settings WHERE id = 1
+        """).fetchone()["monthly_budget"]
+
+    total = sum(row["amount"] for row in expenses)
+    remaining = budget - total
+
+    categories = {}
+    for row in expenses:
+        categories[row["category"]] = (
+            categories.get(row["category"], 0) + row["amount"]
+        )
+
+    highest = max(categories, key=categories.get) if categories else None
+    money = lambda value: f"₹{value:,.2f}"
+
+    if any(word in question for word in ["highest", "most", "category", "where"]):
+        if highest:
+            answer = (
+                f"Your highest spending category this month is {highest}, "
+                f"with {money(categories[highest])} spent."
+            )
+        else:
+            answer = "You have no recorded expenses this month yet."
+
+    elif any(word in question for word in ["budget", "remaining", "left", "limit"]):
+        answer = (
+            f"Your monthly budget is {money(budget)}. "
+            f"You have spent {money(total)}, with "
+            f"{money(remaining)} remaining."
+        )
+        if remaining < 0:
+            answer += f" You are over budget by {money(abs(remaining))}."
+
+    elif any(word in question for word in ["reduce", "save", "saving", "cut"]):
+        if highest:
+            answer = (
+                f"Your {highest} category has the highest spending at "
+                f"{money(categories[highest])}. Review these expenses for "
+                "possible savings and compare them with your business needs."
+            )
+        else:
+            answer = "Record some expenses first so I can suggest savings."
+
+    elif any(word in question for word in ["summary", "total", "spent", "expense"]):
+        answer = (
+            f"This month's total spending is {money(total)} across "
+            f"{len(expenses)} transactions. Your budget is {money(budget)} "
+            f"and the remaining amount is {money(remaining)}."
+        )
+        if highest:
+            answer += (
+                f" Your highest category is {highest} "
+                f"({money(categories[highest])})."
+            )
+
+    else:
+        answer = (
+            "I can help with your monthly spending, budget remaining, "
+            "highest-spending category, and saving suggestions. "
+            "Try asking: 'Give me a summary' or 'Where am I spending the most?'"
+        )
+
+    return jsonify({"answer": answer})
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=False)

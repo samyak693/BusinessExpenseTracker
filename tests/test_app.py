@@ -70,3 +70,26 @@ def test_reject_invalid_expense(client):
 
     assert response.status_code == 400
 
+def test_financial_assistant(client):
+    response = client.post("/api/assistant", json={
+        "question": "Give me a summary"
+    })
+
+    assert response.status_code == 200
+    result = response.get_json()
+    assert "answer" in result
+    assert len(result["answer"]) > 0
+
+
+def test_financial_insights(client):
+    response = client.get("/api/insights?month=2026-10")
+
+    assert response.status_code == 200
+    result = response.get_json()
+
+    assert result["month"] == "2026-10"
+    assert "total" in result
+    assert "budget" in result
+    assert "remaining" in result
+    assert "insights" in result
+
